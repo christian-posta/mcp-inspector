@@ -277,9 +277,11 @@ export function useConnection({
 
   const handleAuthError = async (error: unknown) => {
     if (is401Error(error)) {
+      console.log("🔐 401 Error detected, starting OAuth flow...");
       const serverAuthProvider = new InspectorOAuthClientProvider(sseUrl);
 
       const result = await auth(serverAuthProvider, { serverUrl: sseUrl });
+      console.log("🔐 OAuth flow result:", result);
       return result === "AUTHORIZED";
     }
 
