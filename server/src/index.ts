@@ -21,6 +21,63 @@ import { findActualExecutable } from "spawn-rx";
 import mcpProxy from "./mcpProxy.js";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 
+// Create a custom fetch function that routes through HTTP proxy if configured
+function createProxyFetch() {
+  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
+  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  
+  if (!httpProxy && !httpsProxy) {
+    console.log('No proxy configured, using direct connections');
+    return undefined; // Use default fetch
+  }
+  
+  console.log(`HTTP proxy configured: HTTP_PROXY=${httpProxy}, HTTPS_PROXY=${httpsProxy}`);
+  
+  return async (url: string | URL, init?: RequestInit): Promise<Response> => {
+    const targetUrl = typeof url === 'string' ? url : url.toString();
+    const targetUrlObj = new URL(targetUrl);
+    
+    // Determine which proxy to use based on protocol
+    const proxyUrl = targetUrlObj.protocol === 'https:' ? httpsProxy : httpProxy;
+    
+    if (proxyUrl) {
+      console.log(`Routing ${targetUrl} through proxy: ${proxyUrl}`);
+      
+      // Create a proper URL object for the proxy
+      const proxyRequestUrl = new URL(proxyUrl);
+      
+      // For HTTP proxy, you typically send the full URL as a path
+      // The proxy will then make the request to that URL
+      proxyRequestUrl.pathname = targetUrl;
+      
+      // Alternative: some proxies expect the target URL as a query parameter
+      // proxyRequestUrl.searchParams.set('url', targetUrl);
+      
+      console.log('Proxy request URL:', proxyRequestUrl.toString());
+      
+      // Create new headers for the proxy request
+      const headers = new Headers(init?.headers);
+      
+      // Add proxy-specific headers if needed
+      if (process.env.PROXY_AUTH) {
+        headers.set('Proxy-Authorization', process.env.PROXY_AUTH);
+      }
+      
+      // Add proper forwarded headers
+      headers.set('Host', targetUrlObj.host);
+      headers.set('X-Forwarded-For', targetUrlObj.hostname);
+      
+      return fetch(proxyRequestUrl.toString(), {
+        ...init,
+        headers
+      });
+    }
+    
+    // Fallback to direct connection
+    return fetch(targetUrl, init);
+  };
+}
+
 const DEFAULT_MCP_PROXY_LISTEN_PORT = "6277";
 const SSE_HEADERS_PASSTHROUGH = ["authorization"];
 const STREAMABLE_HTTP_HEADERS_PASSTHROUGH = [
@@ -210,7 +267,7 @@ const createTransport = async (req: express.Request): Promise<Transport> => {
 
     const transport = new SSEClientTransport(new URL(url), {
       eventSourceInit: {
-        fetch: (url, init) => fetch(url, { ...init, headers }),
+        fetch: createProxyFetch() || ((url, init) => fetch(url, { ...init, headers })),
       },
       requestInit: {
         headers,
@@ -220,14 +277,16 @@ const createTransport = async (req: express.Request): Promise<Transport> => {
     return transport;
   } else if (transportType === "streamable-http") {
     const headers = getHttpHeaders(req, transportType);
+    const targetUrl = query.url as string;
+
+    console.log(`StreamableHTTP transport - Target URL: ${targetUrl}`);
 
     const transport = new StreamableHTTPClientTransport(
-      new URL(query.url as string),
-      {
-        requestInit: {
-          headers,
-        },
-      },
+      new URL(targetUrl),
+      { 
+        requestInit: { headers },
+        fetch: createProxyFetch()
+      }
     );
     await transport.start();
     return transport;
