@@ -21,8 +21,9 @@ const UrlElicitationRequest = ({
   const validateUrl = (url: string): boolean => {
     try {
       const parsedUrl = new URL(url);
-      // Only allow HTTPS for security (demo-friendly but still secure)
-      return parsedUrl.protocol === "https:";
+      // Allow HTTPS and localhost HTTP for demo purposes
+      return parsedUrl.protocol === "https:" || 
+             (parsedUrl.protocol === "http:" && parsedUrl.hostname === "localhost");
     } catch {
       return false;
     }
@@ -32,7 +33,7 @@ const UrlElicitationRequest = ({
     const url = request.request.url;
     
     if (!url || !validateUrl(url)) {
-      alert("Invalid URL: Only HTTPS URLs are allowed");
+      alert("Invalid URL: Only HTTPS URLs or localhost HTTP URLs are allowed");
       return;
     }
 
