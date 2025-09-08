@@ -228,6 +228,15 @@ const App = () => {
       ]);
     },
     onElicitationRequest: (request, resolve) => {
+      console.log("=== APP.TSX: ONELICITATIONREQUEST CALLBACK ===");
+      console.log("Request received:", JSON.stringify(request, null, 2));
+      console.log("Request params:", request.params);
+      console.log("Request params mode:", request.params?.mode);
+      console.log("Request params url:", request.params?.url);
+      console.log("Request params elicitationId:", request.params?.elicitationId);
+      console.log("Request params requestedSchema:", request.params?.requestedSchema);
+      console.log("=== END APP.TSX CALLBACK ===");
+      
       const currentTab = lastToolCallOriginTabRef.current;
 
       setPendingElicitationRequests((prev) => [
@@ -237,7 +246,10 @@ const App = () => {
           request: {
             id: nextRequestId.current,
             message: request.params.message,
-            requestedSchema: request.params.requestedSchema,
+            requestedSchema: request.params.requestedSchema, // Only for form mode
+            mode: request.params.mode,
+            url: request.params.url,
+            elicitationId: request.params.elicitationId,
           },
           originatingTab: currentTab,
           resolve,
@@ -516,9 +528,25 @@ const App = () => {
     id: number,
     response: ElicitationResponse,
   ) => {
+    console.log("=== APP.TSX: HANDLERESOLVEELICITATION ===");
+    console.log("Resolving elicitation ID:", id);
+    console.log("Response:", JSON.stringify(response, null, 2));
+    console.log("Response action:", response.action);
+    console.log("Response content:", response.content);
+    console.log("=== END HANDLERESOLVEELICITATION ===");
+    
     setPendingElicitationRequests((prev) => {
       const request = prev.find((r) => r.id === id);
       if (request) {
+        console.log("=== APP.TSX: FOUND REQUEST ===");
+        console.log("Request details:", JSON.stringify(request.request, null, 2));
+        console.log("Request mode:", request.request.mode);
+        console.log("Request url:", request.request.url);
+        console.log("Request elicitationId:", request.request.elicitationId);
+        console.log("Request requestedSchema:", request.request.requestedSchema);
+        console.log("=== END FOUND REQUEST ===");
+        
+        console.log("Calling request.resolve with response:", response);
         request.resolve(response);
 
         if (request.originatingTab) {

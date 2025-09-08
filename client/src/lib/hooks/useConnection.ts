@@ -355,7 +355,10 @@ export function useConnection({
       {
         capabilities: {
           sampling: {},
-          elicitation: {},
+          elicitation: {
+            form: {},
+            url: {},
+          },
           roots: {
             listChanged: true,
           },
@@ -612,12 +615,80 @@ export function useConnection({
       }
 
       if (onElicitationRequest) {
-        client.setRequestHandler(ElicitRequestSchema, async (request) => {
+        console.log("Setting up elicitation request handler with schema:", ElicitRequestSchema);
+        console.log("Schema name:", ElicitRequestSchema._def?.typeName);
+        console.log("Schema shape:", ElicitRequestSchema._def?.shape);
+        
+        // Create a custom schema that accepts both form and URL modes
+        const CustomElicitRequestSchema = z.object({
+          jsonrpc: z.literal("2.0"),
+          id: z.union([z.string(), z.number()]),
+          method: z.literal("elicitation/create"),
+          params: z.object({
+            mode: z.enum(["form", "url"]),
+            message: z.string(),
+            // Optional fields for different modes
+            requestedSchema: z.any().optional(),
+            url: z.string().optional(),
+            elicitationId: z.string().optional(),
+          }),
+        });
+        
+        client.setRequestHandler(CustomElicitRequestSchema, async (request) => {
+          console.log("=== ELICITATION REQUEST RECEIVED (CUSTOM SCHEMA) ===");
+          console.log("Full request object:", JSON.stringify(request, null, 2));
+          console.log("Request method:", request.method);
+          console.log("Request params:", request.params);
+          console.log("Request params mode:", request.params?.mode);
+          console.log("Request params url:", request.params?.url);
+          console.log("Request params elicitationId:", request.params?.elicitationId);
+          console.log("Request params requestedSchema:", request.params?.requestedSchema);
+          console.log("=== END ELICITATION REQUEST ===");
+          
           return new Promise((resolve) => {
-            onElicitationRequest(request, resolve);
+            console.log("Calling onElicitationRequest callback...");
+            onElicitationRequest(request, (response) => {
+              console.log("=== ELICITATION RESPONSE ===");
+              console.log("Response being sent:", JSON.stringify(response, null, 2));
+              console.log("=== END ELICITATION RESPONSE ===");
+              resolve(response);
+            });
           });
         });
+      } else {
+        console.log("No onElicitationRequest callback provided!");
       }
+
+      // Add debug logging for all incoming messages
+      const originalOnMessage = client.transport.onmessage;
+      client.transport.onmessage = (message) => {
+        console.log("=== INCOMING MESSAGE ===");
+        console.log("Raw message:", message);
+        console.log("Message type:", typeof message);
+        
+        // If it's an elicitation request, debug the params
+        if (message.method === "elicitation/create") {
+          console.log("=== ELICITATION REQUEST DEBUG ===");
+          console.log("Message params:", message.params);
+          console.log("Params mode:", message.params?.mode);
+          console.log("Params url:", message.params?.url);
+          console.log("Params elicitationId:", message.params?.elicitationId);
+          console.log("Params requestedSchema:", message.params?.requestedSchema);
+          
+          // Test schema validation
+          const validationResult = ElicitRequestSchema.safeParse(message);
+          console.log("Schema validation result:", validationResult);
+          if (!validationResult.success) {
+            console.log("Schema validation errors:", validationResult.error);
+          }
+          console.log("=== END ELICITATION REQUEST DEBUG ===");
+        }
+        
+        console.log("=== END INCOMING MESSAGE ===");
+        if (originalOnMessage) {
+          originalOnMessage(message);
+        }
+      };
 
       setMcpClient(client);
       setConnectionStatus("connected");

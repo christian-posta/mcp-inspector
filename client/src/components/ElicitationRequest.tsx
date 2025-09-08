@@ -23,7 +23,7 @@ const ElicitationRequest = ({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
-    const defaultValue = generateDefaultValue(request.request.requestedSchema);
+    const defaultValue = generateDefaultValue(request.request.requestedSchema!);
     setFormData(defaultValue);
     setValidationError(null);
   }, [request.request.requestedSchema]);
@@ -75,12 +75,12 @@ const ElicitationRequest = ({
 
   const handleAccept = () => {
     try {
-      if (!validateFormData(formData, request.request.requestedSchema)) {
+      if (!validateFormData(formData, request.request.requestedSchema!)) {
         return;
       }
 
       const ajv = new Ajv();
-      const validate = ajv.compile(request.request.requestedSchema);
+      const validate = ajv.compile(request.request.requestedSchema!);
       const isValid = validate(formData);
 
       if (!isValid) {
@@ -109,8 +109,8 @@ const ElicitationRequest = ({
   };
 
   const schemaTitle =
-    request.request.requestedSchema.title || "Information Request";
-  const schemaDescription = request.request.requestedSchema.description;
+    request.request.requestedSchema?.title || "Information Request";
+  const schemaDescription = request.request.requestedSchema?.description;
 
   return (
     <div
@@ -137,7 +137,7 @@ const ElicitationRequest = ({
         <div className="space-y-2">
           <h4 className="font-medium">Response Form</h4>
           <DynamicJsonForm
-            schema={request.request.requestedSchema}
+            schema={request.request.requestedSchema!}
             value={formData}
             onChange={(newValue: JsonValue) => {
               setFormData(newValue);
