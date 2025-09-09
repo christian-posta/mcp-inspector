@@ -1,3 +1,13 @@
+# How to run this:
+
+```bash
+./run-elicitation-inspector.sh
+```
+
+Note that this needs to be pointing to the `mcp-typscript-sdk`
+
+See notes in this file for how to do that. 
+
 Let me check which SDK this project uses and how it's structured to understand how to integrate the URL elicitation branch.
 
 
