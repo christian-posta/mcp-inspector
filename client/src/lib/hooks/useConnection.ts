@@ -615,10 +615,13 @@ export function useConnection({
       }
 
       if (onElicitationRequest) {
-        console.log("Setting up elicitation request handler with schema:", ElicitRequestSchema);
+        console.log(
+          "Setting up elicitation request handler with schema:",
+          ElicitRequestSchema,
+        );
         console.log("Schema name:", ElicitRequestSchema._def?.typeName);
         console.log("Schema shape:", ElicitRequestSchema._def?.shape);
-        
+
         // Create a custom schema that accepts both form and URL modes
         const CustomElicitRequestSchema = z.object({
           jsonrpc: z.literal("2.0"),
@@ -633,7 +636,7 @@ export function useConnection({
             elicitationId: z.string().optional(),
           }),
         });
-        
+
         client.setRequestHandler(CustomElicitRequestSchema, async (request) => {
           console.log("=== ELICITATION REQUEST RECEIVED (CUSTOM SCHEMA) ===");
           console.log("Full request object:", JSON.stringify(request, null, 2));
@@ -641,15 +644,24 @@ export function useConnection({
           console.log("Request params:", request.params);
           console.log("Request params mode:", request.params?.mode);
           console.log("Request params url:", request.params?.url);
-          console.log("Request params elicitationId:", request.params?.elicitationId);
-          console.log("Request params requestedSchema:", request.params?.requestedSchema);
+          console.log(
+            "Request params elicitationId:",
+            request.params?.elicitationId,
+          );
+          console.log(
+            "Request params requestedSchema:",
+            request.params?.requestedSchema,
+          );
           console.log("=== END ELICITATION REQUEST ===");
-          
+
           return new Promise((resolve) => {
             console.log("Calling onElicitationRequest callback...");
-            onElicitationRequest(request, (response) => {
+            onElicitationRequest(request, (response: any) => {
               console.log("=== ELICITATION RESPONSE ===");
-              console.log("Response being sent:", JSON.stringify(response, null, 2));
+              console.log(
+                "Response being sent:",
+                JSON.stringify(response, null, 2),
+              );
               console.log("=== END ELICITATION RESPONSE ===");
               resolve(response);
             });
@@ -660,35 +672,46 @@ export function useConnection({
       }
 
       // Add debug logging for all incoming messages
-      const originalOnMessage = client.transport.onmessage;
-      client.transport.onmessage = (message) => {
-        console.log("=== INCOMING MESSAGE ===");
-        console.log("Raw message:", message);
-        console.log("Message type:", typeof message);
-        
-        // If it's an elicitation request, debug the params
-        if (message.method === "elicitation/create") {
-          console.log("=== ELICITATION REQUEST DEBUG ===");
-          console.log("Message params:", message.params);
-          console.log("Params mode:", message.params?.mode);
-          console.log("Params url:", message.params?.url);
-          console.log("Params elicitationId:", message.params?.elicitationId);
-          console.log("Params requestedSchema:", message.params?.requestedSchema);
-          
-          // Test schema validation
-          const validationResult = ElicitRequestSchema.safeParse(message);
-          console.log("Schema validation result:", validationResult);
-          if (!validationResult.success) {
-            console.log("Schema validation errors:", validationResult.error);
+      const originalOnMessage = client.transport?.onmessage;
+      if (client.transport) {
+        client.transport.onmessage = (message) => {
+          console.log("=== INCOMING MESSAGE ===");
+          console.log("Raw message:", message);
+          console.log("Message type:", typeof message);
+
+          // If it's an elicitation request, debug the params
+          // Type guard: check if message has 'method' property (request/notification, not response)
+          if ("method" in message && message.method === "elicitation/create") {
+            console.log("=== ELICITATION REQUEST DEBUG ===");
+            console.log("Message params:", message.params);
+            if ("params" in message && message.params) {
+              console.log("Params mode:", (message.params as any)?.mode);
+              console.log("Params url:", (message.params as any)?.url);
+              console.log(
+                "Params elicitationId:",
+                (message.params as any)?.elicitationId,
+              );
+              console.log(
+                "Params requestedSchema:",
+                (message.params as any)?.requestedSchema,
+              );
+            }
+
+            // Test schema validation
+            const validationResult = ElicitRequestSchema.safeParse(message);
+            console.log("Schema validation result:", validationResult);
+            if (!validationResult.success) {
+              console.log("Schema validation errors:", validationResult.error);
+            }
+            console.log("=== END ELICITATION REQUEST DEBUG ===");
           }
-          console.log("=== END ELICITATION REQUEST DEBUG ===");
-        }
-        
-        console.log("=== END INCOMING MESSAGE ===");
-        if (originalOnMessage) {
-          originalOnMessage(message);
-        }
-      };
+
+          console.log("=== END INCOMING MESSAGE ===");
+          if (originalOnMessage) {
+            originalOnMessage(message);
+          }
+        };
+      }
 
       setMcpClient(client);
       setConnectionStatus("connected");

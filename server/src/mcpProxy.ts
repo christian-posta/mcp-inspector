@@ -55,6 +55,14 @@ export default function mcpProxy({
       }
       reportedServerSession = true;
     }
+
+    // Debug logging for elicitation messages
+    if ("method" in message && message.method === "elicitation/create") {
+      console.log("=== PROXY: ELICITATION REQUEST FROM SERVER ===");
+      console.log("Full message:", JSON.stringify(message, null, 2));
+      console.log("=== END PROXY ELICITATION ===");
+    }
+
     transportToClient.send(message).catch(onClientError);
   };
 
